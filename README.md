@@ -3,6 +3,8 @@ Lua SQL Model
 
 Help you easily to read/write SQLite3 data.
 
+It is based on [lua-ljsqlite3](https://github.com/stepelu/lua-ljsqlite3)
+
 
 ## Usage
 
@@ -23,7 +25,14 @@ model.find('1') -- {key = '1', data = '11'}
 
 model.delete('1')
 model.find('1') -- nil
+
+model:exec('select * from test')
 ```
 
 More see `spec/model_spec.lua`
+
+
+## TODO
+
+* Chain & lazy query
 
