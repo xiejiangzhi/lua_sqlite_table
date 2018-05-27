@@ -56,7 +56,8 @@ function M:create(attrs)
   end
   sql = sql .. ') VALUES' .. vals .. ')'
 
-  self:exec(sql)
+  local t = self:exec(sql .. '; SELECT last_insert_rowid() as id;')
+  return tonumber(t.id[1])
 end
 
 function M:update(id_or_cond, attrs)

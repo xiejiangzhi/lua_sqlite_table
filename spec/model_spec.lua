@@ -5,9 +5,7 @@ describe("model", function()
     Model.conn = nil
     model = Model.new('test', [[
       CREATE TABLE IF NOT EXISTS test(key char(10) PRIMARY KEY, data TEXT, item_type CHAR(10));
-    ]]);
-
-    -- print("count: " .. model:count())
+    ]])
   end)
 
   describe("new", function()
@@ -40,6 +38,17 @@ describe("model", function()
 
     it("should return nil if not found any", function()
       assert.is_same(model:find('asdf'), nil)
+    end)
+
+    it("should return id", function()
+      model = Model.new('other', [[CREATE TABLE other(id INTEGER PRIMARY KEY, val TEXT)]])
+      assert.is_same(model:create({val = 123}), 1)
+      assert.is_same(model:create({val = 321}), 2)
+      assert.is_same(model:create({val = 111}), 3)
+
+      assert.is_same(model:find(1), {id = 1, val = '123'})
+      assert.is_same(model:find(3), {id = 3, val = '111'})
+      assert.is_same(model:find(2), {id = 2, val = '321'})
     end)
   end)
 
