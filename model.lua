@@ -31,11 +31,7 @@ function SQLChain.new(model)
   setmetatable(obj, SQLChain)
 
   obj.model = model
-
-  obj.conditions = {}
-  obj.sql_select = '*'
-  obj.sql_limit = nil
-  obj.sql_order = nil
+  obj:reset()
 
   return obj
 end
@@ -50,7 +46,9 @@ function SQLChain:where(cond, ...)
   if type(cond) == 'table' then
     table.insert(self.conditions, toKeyValStr(cond, ' AND '))
   else
-    table.insert(self.conditions, string.format(cond, ...))
+    local t = {...}
+    cond = cond:gsub('?', function(s) return toSqlVal(table.remove(t, 1)) end)
+    table.insert(self.conditions, cond)
   end
   return self
 end
@@ -66,18 +64,25 @@ function SQLChain:order(order)
 end
 
 function SQLChain:to_sql()
-  local sql = 'SELECT ' .. self.sql_select .. ' FROM ' .. self.model.table_name .. ' WHERE '
+  local sql = 'SELECT ' .. self.sql_select .. ' FROM ' .. self.model.table_name
   local conds = ''
 
   for i, v in ipairs(self.conditions) do
     if i ~= 1 then conds = conds .. ' AND ' end
     conds = conds .. '(' .. v .. ')'
   end
-  sql = sql .. conds
+  if conds ~= '' then sql = sql .. ' WHERE ' .. conds end
   if self.sql_order then sql = sql .. ' ORDER BY ' .. self.sql_order end
   if self.sql_limit then sql = sql .. ' LIMIT ' .. self.sql_limit end
 
   return sql
+end
+
+function SQLChain:reset()
+  self.conditions = {}
+  self.sql_select = '*'
+  self.sql_limit = nil
+  self.sql_order = nil
 end
 
 function SQLChain:first()

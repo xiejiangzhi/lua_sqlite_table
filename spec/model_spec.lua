@@ -111,6 +111,7 @@ describe("model", function()
       model:create({key = 'k4', data = '11', item_type = 'it'})
 
       query = model:where('1 = 1')
+      query:reset()
     end)
 
     it('should return all matched rows', function()
@@ -120,13 +121,21 @@ describe("model", function()
       })
     end)
 
-    it('should return format condition by string format', function()
-      assert.is_same(query:where("data = '%s'", 11):to_a(), {
-        {key = 'k3', data = '11', item_type = 'it'},
-        {key = 'k4', data = '11', item_type = 'it'}
-      })
+    it('reset should reset all options', function()
+      query:where({data = 11}):order('key desc'):limit(1):select('key')
 
-      assert.is_same(query:where("key = '%s'", 'k3'):to_a(), {
+      assert.is_same(query:to_sql(), "SELECT key FROM test WHERE (data = 11) ORDER BY key desc LIMIT 1")
+      query:reset()
+      assert.is_same(query:to_sql(), "SELECT * FROM test")
+    end)
+
+    it('should return format condition', function()
+      assert.is_same(query:where("data = ? AND other = ?", 'str', 123):to_sql(),
+        "SELECT * FROM test WHERE (data = 'str' AND other = 123)"
+      )
+      query:reset()
+
+      assert.is_same(query:where("key = ?", 'k3'):to_a(), {
         {key = 'k3', data = '11', item_type = 'it'}
       })
     end)
@@ -170,12 +179,14 @@ describe("model", function()
     it('should return data when use misc query', function()
       assert.is_same(query:where({data = 11}):order('key desc'):limit(1):select('key'):to_a(), {{key = 'k4'}})
 
+      query:reset()
       -- multiple mixed where
       assert.is_same(
         query:where({data = 11}):where('data = 11'):order('key desc'):limit(1):select('key'):to_a(),
         {{key = 'k4'}}
       )
 
+      query:reset()
       -- Not found anything
       assert.is_same(
         query:where({data = 11}):where('data = 123123123'):order('key desc'):limit(1):select('key'):to_a(),

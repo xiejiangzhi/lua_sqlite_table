@@ -32,20 +32,43 @@ model:exec('select * from test')
 Query Chain
 
 ```
-query = model:where{key = 'k'}:where("data like "1%"):order('key desc'):limit(10)
+query = model:where{key = 'k'}:where("data like '1%'"):order('key desc'):limit(10)
 query:select('key')
+
+-- convert this query to sql
+query:to_sql() -- SELECT key FROM xxx WHERE (key = 'k') AND (data like '1%') ORDER BY key desc LIMIT 10
 
 -- execute query
 query:to_a() -- {{key = xx}, {key = yy}}
 query:to_a() -- it will query again
 query:first() -- {key = xx}
+
+query:reset()
+query:to_sql() -- SELECT * FROM xxx
 ```
 
-Format where condition, just call the string.format method, it doesn't escape dangerous input
+Format where condition, just gsub the '?' and convert the value to sql value. It doesn't escape dangerous input
 
 ```
-model:where("item_type = '%s' AND width > %i", 'type1', 123)
+model:where("item_type = ? AND width > ?", 'type1', 123)
+-- eql
+model:where("item_type = 'type1' AND width > 123", 'type1', 123)
 ```
 
 More see `spec/model_spec.lua`
 
+
+## TODO
+
+* Escape dangerous input
+
+
+## Development
+
+If you want help this project, follow this flow
+
+* Install `busted`
+* Add your code
+* Update the testing
+* Run `bin/busted`, make sure the testing is pass
+* Push your code and create a merge request
