@@ -41,5 +41,11 @@ query:to_a() -- it will query again
 query:first() -- {key = xx}
 ```
 
+Format where condition, just call the string.format method, it doesn't escape dangerous input
+
+```
+model:where("item_type = '%s' AND width > %i", 'type1', 123)
+```
+
 More see `spec/model_spec.lua`
 

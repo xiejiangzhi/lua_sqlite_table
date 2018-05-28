@@ -120,6 +120,17 @@ describe("model", function()
       })
     end)
 
+    it('should return format condition by string format', function()
+      assert.is_same(query:where("data = '%s'", 11):to_a(), {
+        {key = 'k3', data = '11', item_type = 'it'},
+        {key = 'k4', data = '11', item_type = 'it'}
+      })
+
+      assert.is_same(query:where("key = '%s'", 'k3'):to_a(), {
+        {key = 'k3', data = '11', item_type = 'it'}
+      })
+    end)
+
     it("first should return the first one", function()
       assert.is_same(query:first(), {key = 'k1', data = 'vv', item_type = 'it'})
       assert.is_same(query:where({data = 11}):first(), {key = 'k3', data = '11', item_type = 'it'})

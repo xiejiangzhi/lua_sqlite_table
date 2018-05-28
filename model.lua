@@ -45,12 +45,12 @@ function SQLChain:select(s)
   return self
 end
 
-function SQLChain:where(cond)
+function SQLChain:where(cond, ...)
   local cond_sql = ''
   if type(cond) == 'table' then
     table.insert(self.conditions, toKeyValStr(cond, ' AND '))
   else
-    table.insert(self.conditions, cond)
+    table.insert(self.conditions, string.format(cond, ...))
   end
   return self
 end
@@ -159,8 +159,8 @@ function M:delete(id_or_cond)
   return self:exec(sql)
 end
 
-function M:where(cond)
-  return SQLChain.new(self):where(cond)
+function M:where(...)
+  return SQLChain.new(self):where(...)
 end
 
 function M:exec(sql)
