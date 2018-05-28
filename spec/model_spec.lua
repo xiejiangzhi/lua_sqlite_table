@@ -83,7 +83,7 @@ describe("model", function()
       model:create({key = 'kk', data = 'vv', item_type = 'it'})
       model:create({key = 'jj', data = 'vv', item_type = 'it'})
       model:create({key = 'hh', data = '11', item_type = 'it'})
-      assert.is_same(model:where({data = 'vv'}), {
+      assert.is_same(model:where({data = 'vv'}):to_a(), {
         {key = 'kk', data = 'vv', item_type = 'it'},
         {key = 'jj', data = 'vv', item_type = 'it'}
       })
@@ -93,11 +93,83 @@ describe("model", function()
       model:create({key = 'kk', data = 'vv', item_type = 'it'})
       model:create({key = 'jj', data = 'vv', item_type = 'it'})
       model:create({key = 'hh', data = '11', item_type = 'it'})
-      assert.is_same(model:where("data = 'vv' OR key = 'hh'"), {
+      assert.is_same(model:where("data = 'vv' OR key = 'hh'"):to_a(), {
         {key = 'kk', data = 'vv', item_type = 'it'},
         {key = 'jj', data = 'vv', item_type = 'it'},
         {key = 'hh', data = '11', item_type = 'it'}
       })
+    end)
+  end)
+
+  describe("sql chain", function()
+    local query
+
+    before_each(function()
+      model:create({key = 'k1', data = 'vv', item_type = 'it'})
+      model:create({key = 'k2', data = 'vv', item_type = 'it'})
+      model:create({key = 'k3', data = '11', item_type = 'it'})
+      model:create({key = 'k4', data = '11', item_type = 'it'})
+
+      query = model:where('1 = 1')
+    end)
+
+    it('should return all matched rows', function()
+      assert.is_same(query:where({data = 11}):to_a(), {
+        {key = 'k3', data = '11', item_type = 'it'},
+        {key = 'k4', data = '11', item_type = 'it'}
+      })
+    end)
+
+    it("first should return the first one", function()
+      assert.is_same(query:first(), {key = 'k1', data = 'vv', item_type = 'it'})
+      assert.is_same(query:where({data = 11}):first(), {key = 'k3', data = '11', item_type = 'it'})
+    end)
+
+    it('should support limit', function()
+      assert.is_same(query:where({data = 11}):limit(1):to_a(), {
+        {key = 'k3', data = '11', item_type = 'it'}
+      })
+    end)
+
+    it('should support order', function()
+      assert.is_same(query:where({data = 11}):order('key desc'):to_a(), {
+        {key = 'k4', data = '11', item_type = 'it'},
+        {key = 'k3', data = '11', item_type = 'it'}
+      })
+    end)
+
+    it('should support order', function()
+      assert.is_same(query:where({data = 11}):order('key desc'):to_a(), {
+        {key = 'k4', data = '11', item_type = 'it'},
+        {key = 'k3', data = '11', item_type = 'it'}
+      })
+    end)
+
+    it('should support select', function()
+      assert.is_same(query:where({data = 11}):select('key, data'):to_a(), {
+        {key = 'k3', data = '11'}, {key = 'k4', data = '11'}
+      })
+    end)
+
+    it('should support count', function()
+      assert.is_same(query:count(), 4)
+      assert.is_same(query:where({data = 11}):count(), 2)
+    end)
+
+    it('should return data when use misc query', function()
+      assert.is_same(query:where({data = 11}):order('key desc'):limit(1):select('key'):to_a(), {{key = 'k4'}})
+
+      -- multiple mixed where
+      assert.is_same(
+        query:where({data = 11}):where('data = 11'):order('key desc'):limit(1):select('key'):to_a(),
+        {{key = 'k4'}}
+      )
+
+      -- Not found anything
+      assert.is_same(
+        query:where({data = 11}):where('data = 123123123'):order('key desc'):limit(1):select('key'):to_a(),
+        {}
+      )
     end)
   end)
 end)

@@ -1,6 +1,9 @@
 local M = {}
 M.__index = M
 
+local SQLChain = {}
+SQLChain.__index = SQLChain
+
 local sqlite3 = require 'sqlite3'
 
 local function toSqlVal(val)
@@ -20,6 +23,81 @@ local function toKeyValStr(table, split)
   end
   return cond
 end
+
+------------------- SQLChain ------------------------
+
+function SQLChain.new(model)
+  local obj = {}
+  setmetatable(obj, SQLChain)
+
+  obj.model = model
+
+  obj.conditions = {}
+  obj.sql_select = '*'
+  obj.sql_limit = nil
+  obj.sql_order = nil
+
+  return obj
+end
+
+function SQLChain:select(s)
+  self.sql_select = s
+  return self
+end
+
+function SQLChain:where(cond)
+  local cond_sql = ''
+  if type(cond) == 'table' then
+    table.insert(self.conditions, toKeyValStr(cond, ' AND '))
+  else
+    table.insert(self.conditions, cond)
+  end
+  return self
+end
+
+function SQLChain:limit(n)
+  self.sql_limit = n
+  return self
+end
+
+function SQLChain:order(order)
+  self.sql_order = order
+  return self
+end
+
+function SQLChain:to_sql()
+  local sql = 'SELECT ' .. self.sql_select .. ' FROM ' .. self.model.table_name .. ' WHERE '
+  local conds = ''
+
+  for i, v in ipairs(self.conditions) do
+    if i ~= 1 then conds = conds .. ' AND ' end
+    conds = conds .. '(' .. v .. ')'
+  end
+  sql = sql .. conds
+  if self.sql_order then sql = sql .. ' ORDER BY ' .. self.sql_order end
+  if self.sql_limit then sql = sql .. ' LIMIT ' .. self.sql_limit end
+
+  return sql
+end
+
+function SQLChain:first()
+  local t = self.model:exec(self:to_sql())
+  return self.model:toRowTable(t)
+end
+
+function SQLChain:count()
+  self.sql_select = "count(*)"
+  local t = self.model:exec(self:to_sql())
+  return t[1][1]
+end
+
+function SQLChain:to_a()
+  local t = self.model:exec(self:to_sql())
+  if t == nil then return {} end
+  return self.model:toRowsTable(t)
+end
+
+------------------- Model ------------------------
 
 function M.new(table_name, schema, db)
   local obj = {}
@@ -82,17 +160,7 @@ function M:delete(id_or_cond)
 end
 
 function M:where(cond)
-  local sql = 'SELECT * FROM ' .. self.table_name
-  local vals
-
-  if type(cond) == 'table' then
-    vals = toKeyValStr(cond, ' AND ')
-  else
-    vals = cond
-  end
-  sql = sql .. ' WHERE ' .. vals
-  local t = self:exec(sql)
-  return self:toRowsTable(t)
+  return SQLChain.new(self):where(cond)
 end
 
 function M:exec(sql)
