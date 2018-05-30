@@ -60,7 +60,7 @@ More see `spec/model_spec.lua`
 
 ## TODO
 
-* Escape dangerous input
+* Fix the ';' bug for `lua-ljsqlite3`, if our text include ';' it will split the sql
 
 
 ## Development

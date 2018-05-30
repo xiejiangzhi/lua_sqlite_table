@@ -8,7 +8,7 @@ local sqlite3 = require 'sqlite3'
 
 local function toSqlVal(val)
   if type(val) == 'string' then
-    return "'" .. val .. "'"
+    return "'" .. val:gsub("'", "''") .. "'"
   else  -- boolean number
     return tostring(val)
   end

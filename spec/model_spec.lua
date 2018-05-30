@@ -50,6 +50,11 @@ describe("model", function()
       assert.is_same(model:find(3), {id = 3, val = '111'})
       assert.is_same(model:find(2), {id = 2, val = '321'})
     end)
+
+    it('should escape quote', function()
+      model:create({key = 'k\'1', data = "v%?123v'\""})
+      assert.is_same(model:find('k\'1'), {key = "k'1", data = "v%?123v'\"", item_type = nil})
+    end)
   end)
 
   describe("update", function()
@@ -61,6 +66,12 @@ describe("model", function()
       model:update({key = 'kk'}, {key = '123', data = '11', item_type = '321'})
       assert.is_same(model:find('key'), nil)
       assert.is_same(model:find('123'), {key = '123', data = '11', item_type = '321'})
+    end)
+
+    it("should escape quote", function()
+      model:create({key = 'k\'k', data = 'vv', item_type = 'it'})
+      model:update('k\'k', {data = '1\'"1'})
+      assert.is_same(model:find('k\'k'), {key = 'k\'k', data = '1\'"1', item_type = 'it'})
     end)
   end)
 
@@ -75,6 +86,12 @@ describe("model", function()
       model:create({key = 'kk', data = 'vv', item_type = 'it'})
       model:delete({key = 'kk'})
       assert.is_same(model:find('kk'), nil)
+    end)
+
+    it('should escape quote', function()
+      model:create({key = 'k\'"k', data = 'vv', item_type = 'it'})
+      model:delete({key = 'k\'"k'})
+      assert.is_same(model:find('k\'"k'), nil)
     end)
   end)
 
@@ -97,6 +114,13 @@ describe("model", function()
         {key = 'kk', data = 'vv', item_type = 'it'},
         {key = 'jj', data = 'vv', item_type = 'it'},
         {key = 'hh', data = '11', item_type = 'it'}
+      })
+    end)
+
+    it('should escape quote', function()
+      model:create({key = 'kk', data = 'v\'"v', item_type = 'it'})
+      assert.is_same(model:where("data = 'v''\"v' OR key = 'hh'"):to_a(), {
+        {key = 'kk', data = 'v\'"v', item_type = 'it'},
       })
     end)
   end)
@@ -129,7 +153,7 @@ describe("model", function()
       assert.is_same(query:to_sql(), "SELECT * FROM test")
     end)
 
-    it('should return format condition', function()
+    it('should format condition', function()
       assert.is_same(query:where("data = ? AND other = ?", 'str', 123):to_sql(),
         "SELECT * FROM test WHERE (data = 'str' AND other = 123)"
       )
