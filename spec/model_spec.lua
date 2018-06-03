@@ -42,6 +42,7 @@ describe("model", function()
 
     it("should return id", function()
       model = Model.new('other', [[CREATE TABLE other(id INTEGER PRIMARY KEY, val TEXT)]])
+      _G.asdf = 1
       assert.is_same(model:create({val = 123}), 1)
       assert.is_same(model:create({val = 321}), 2)
       assert.is_same(model:create({val = 111}), 3)
@@ -54,6 +55,11 @@ describe("model", function()
     it('should escape quote', function()
       model:create({key = 'k\'1', data = "v%?123v'\""})
       assert.is_same(model:find('k\'1'), {key = "k'1", data = "v%?123v'\"", item_type = nil})
+    end)
+
+    it('should escape ;', function()
+      model:create({key = 'k\'1', data = "v%?;123v'\""})
+      assert.is_same(model:find('k\'1'), {key = "k'1", data = "v%?;123v'\"", item_type = nil})
     end)
   end)
 

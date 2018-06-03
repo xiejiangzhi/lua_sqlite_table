@@ -20,26 +20,40 @@
 
 local ffi  = require "ffi"
 local bit  = require "bit"
+
 local insert, concat = table.insert, table.concat
-local function split(s, re)
-  local i1, ls = 1, { }
-  if not re then re = '%s+' end
-  if re == '' then return { s } end
+
+local function split_sql(sql)
+  local r = {}
+  local s, fs = 1, 1
+  local qc = 0
+
   while true do
-    local i2, i3 = s:find(re, i1)
-    if not i2 then
-      local last = s:sub(i1)
-      if last ~= '' then insert(ls, last) end
-      if #ls == 1 and ls[1] == '' then
-        return  { }
-      else
-        return ls
-      end
+    local _, e = string.find(sql, '[;\']', fs)
+    local v = nil
+    if e then
+      fs = e + 1
+      v = string.sub(sql, e, e)
+    else
+      v = nil
     end
-    insert(ls, s:sub(i1, i2 - 1))
-    i1 = i3 + 1
+
+    if v == ';' then
+      if qc % 2 == 0 then
+        table.insert(r, string.sub(sql, s, e))
+        s = e + 1
+      end
+    elseif v == nil then
+      table.insert(r, string.sub(sql, s))
+    else
+      qc = qc + 1
+    end
+
+    if e == nil then break end
   end
+  return r
 end
+
 
 local function trim(s)
   return (s:gsub("^%s*(.-)%s*$", "%1"))
@@ -104,6 +118,7 @@ typedef struct sqlite3_stmt sqlite3_stmt;
 typedef void (*sqlite3_destructor_type)(void*);
 typedef struct sqlite3_context sqlite3_context;
 typedef struct Mem sqlite3_value;
+typedef int (*ljsqlite3_cbsql3exec)(void*, int total, char** data, char** cols);
 
 // Get informative error message.
 const char *sqlite3_errmsg(sqlite3*);
@@ -113,6 +128,9 @@ int sqlite3_open_v2(const char *filename, sqlite3 **ppDb, int flags,
   const char *zVfs);
 int sqlite3_close(sqlite3*);
 int sqlite3_busy_timeout(sqlite3*, int ms);
+
+// exec
+int sqlite3_exec(sqlite3 *conn, const char *sql, ljsqlite3_cbsql3exec, void *, char **errmsg);
 
 // Statement.
 int sqlite3_prepare_v2(sqlite3 *conn, const char *zSql, int nByte,
@@ -359,7 +377,7 @@ end
 
 -- Connection exec, __call, rowexec --------------------------------------------
 function conn_mt:exec(commands, get) T_open(self)
-  local cmd1 = split(commands, ";")
+  local cmd1 = split_sql(commands)
   local res, n
   for i=1,#cmd1 do
     local cmd = trim(cmd1[i])
@@ -386,9 +404,29 @@ function conn_mt:rowexec(command) T_open(self)
   end
 end
 
+function conn_mt:execsql(commands) T_open(self)
+  local r = {[0] = {}}
+  local fn = function(conn, total, data, cols)
+    for i = 0, total - 1 do
+      local val, col = ffi.string(data[i]), ffi.string(cols[i])
+      if not r[col] then
+        r[col] = {}
+        table.insert(r, r[col])
+        table.insert(r[0], col)
+      end
+      table.insert(r[col], val)
+    end
+
+    return 0
+  end
+  local cb = ffi.cast('ljsqlite3_cbsql3exec', fn)
+  sql.sqlite3_exec(self._ptr, commands, cb, nil, nil)
+  return r
+end
+
 function conn_mt:__call(commands, out) T_open(self)
   out = out or print
-  local cmd1 = split(commands, ";")
+  local cmd1 = split_sql(commands)
   for c=1,#cmd1 do
     local cmd = trim(cmd1[c])
     if #cmd > 0 then

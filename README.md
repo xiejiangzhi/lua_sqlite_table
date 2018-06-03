@@ -9,6 +9,8 @@ It is based on [lua-ljsqlite3](https://github.com/stepelu/lua-ljsqlite3)
 ## Usage
 
 ```
+Model = require 'model'
+
 model = Model.new('test', [[
   CREATE TABLE IF NOT EXISTS test(key char(10) PRIMARY KEY, data TEXT);
 ]]);

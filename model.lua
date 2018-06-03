@@ -170,6 +170,7 @@ end
 
 function M:exec(sql)
   return M.conn:exec(sql)
+  -- return M.conn:execsql(sql)
 end
 
 function M:toRowTable(r)
@@ -180,6 +181,11 @@ function M:toRowTable(r)
   return t
 end
 
+-- r: {
+--  [0] = {'col_name1', 'col_name2'},
+--  [1] = {'col1_val', 'col2_val'},
+--  [2] = {'col1_val', 'col2_val'}
+-- }
 function M:toRowsTable(r)
   local rows = {}
   for i = 1, #r[1] do
