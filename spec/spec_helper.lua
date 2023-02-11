@@ -1,1 +1,1 @@
-Model = require 'model'
+SqliteTable = require 'sqlite_table'

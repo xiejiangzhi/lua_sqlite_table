@@ -1,10 +1,15 @@
 local M = {}
 M.__index = M
 
+function M.new(...)
+  local obj = setmetatable({}, M)
+  obj:init(...)
+  return obj
+end
+
 local SQLChain = {}
 SQLChain.__index = SQLChain
 
-local sqlite3 = require 'sqlite3'
 
 local function toSqlVal(val)
   if type(val) == 'string' then
@@ -104,22 +109,32 @@ end
 
 ------------------- Model ------------------------
 
-function M.new(table_name, schema, db)
-  local obj = {}
-  setmetatable(obj, M)
+--[[
 
-  M.conn = M.conn or sqlite3.open(db or '')
-  M.conn:exec(schema)
+db: default is a new :memory: db
+table_schema: string or table.
+  "id INTEGER PRIMARY KEY, val INTEGER NOT NULL"
+  or { { "id" "INTEGER" "PRIMARY KEY" }, { "val", "INTEGER", "NOT NULL" }, ... }
+table_index:
+  { { 'xxx_index', { 'col1', 'col2', ...' }, unique = true }, ... }
+]]
+function M:init(db, table_name, table_schema, table_index)
+  self.db = db or require('sqlite3').open(db or ':memory:')
 
-  obj.table_name = table_name
-  obj.table_info = M.conn:exec("PRAGMA table_info(" .. table_name .. ")")
-  obj.columns = obj.table_info[2]
-  return obj
+  self:_create_table(table_name, table_schema)
+  if table_index then
+    self:_create_table_index(table_name, table_index)
+  end
+
+  self.table_name = table_name
+  local table_raw_info = self.db:exec("PRAGMA table_info(" .. table_name .. ")")
+
+  self.table_info, self.primary_key = M._parse_table_info(table_raw_info)
 end
 
+-- find by parimary key
 function M:find(val)
-  local sql = 'SELECT * FROM ' .. self.table_name .. ' WHERE ' .. self.columns[1] .. ' = ' .. toSqlVal(val)
-    .. ' LIMIT 1'
+  local sql = 'SELECT * FROM '..self.table_name..' WHERE '..self.primary_key..' = '..toSqlVal(val)..' LIMIT 1'
   local t = self:exec(sql)
   if t == nil then return end
   return self:toRowTable(t)
@@ -144,12 +159,11 @@ function M:create(attrs)
 end
 
 function M:update(id_or_cond, attrs)
-  local sql = 'UPDATE ' .. self.table_name
-  sql = sql .. ' SET ' .. toKeyValStr(attrs, ',')
+  local sql = 'UPDATE '..self.table_name..' SET '..toKeyValStr(attrs, ',')
   if type(id_or_cond) == 'table' then
     sql = sql .. ' WHERE ' .. toKeyValStr(id_or_cond)
   else
-    sql = sql .. ' WHERE ' .. self.columns[1] .. ' = ' .. toSqlVal(id_or_cond)
+    sql = sql .. ' WHERE ' .. self.primary_key .. ' = ' .. toSqlVal(id_or_cond)
   end
   return self:exec(sql)
 end
@@ -159,7 +173,7 @@ function M:delete(id_or_cond)
   if type(id_or_cond) == 'table' then
     sql = sql .. ' WHERE ' .. toKeyValStr(id_or_cond)
   else
-    sql = sql .. ' WHERE ' .. self.columns[1] .. ' = ' .. toSqlVal(id_or_cond)
+    sql = sql .. ' WHERE ' .. self.primary_key .. ' = ' .. toSqlVal(id_or_cond)
   end
   return self:exec(sql)
 end
@@ -169,8 +183,16 @@ function M:where(...)
 end
 
 function M:exec(sql)
-  return M.conn:exec(sql)
-  -- return M.conn:execsql(sql)
+  return self.db:exec(sql)
+
+  -- local ok, r = xpcall(self.db.exec, function(err)
+  --   Log.error_with_traceback(err)
+  -- end, self.db, sql)
+  -- if ok then
+  --   return r
+  -- end
+
+  -- return self.db:execsql(sql)
 end
 
 function M:toRowTable(r)
@@ -196,4 +218,66 @@ function M:toRowsTable(r)
   return rows
 end
 
+------------------
+
+-- return: { k1_info, k2_info, ..., [k1] = info1, [k2] == info2 }, primary_key_name
+function M._parse_table_info(table_raw_info)
+  local r = {}
+  local pkey
+  for i, v in ipairs(table_raw_info.name) do
+    local col_desc = {
+      name = v,
+      data_type = table_raw_info.type[i],
+      pk = table_raw_info.pk[i] ~= 0,
+      notnull = table_raw_info.notnull[i] ~= 0,
+      dflt_value = table_raw_info.dflt_value[i], -- default value
+    }
+    r[#r + 1] = col_desc
+    r[v] = col_desc
+    if col_desc.pk then
+      pkey = v
+    end
+  end
+  return r, pkey
+end
+
+--[[
+table_schema: string or table.
+  "id INTEGER PRIMARY KEY, val INTEGER NOT NULL"
+  or { { "id" "INTEGER" "PRIMARY KEY" }, { "val", "INTEGER", "NOT NULL" }, ... }
+]]
+function M:_create_table(table_name, table_schema)
+  if type(table_schema) == 'table' then
+    local cols = {}
+    for i, desc in ipairs(table_schema) do
+      cols[#cols + 1] = string.format("%s %s %s", desc[1], desc[2], desc[3] or '')
+    end
+    table_schema = table.concat(cols, ', ')
+  end
+  local table_init_sql = string.format(
+    "CREATE TABLE IF NOT EXISTS %s(%s);", table_name, table_schema
+  )
+  self:exec(table_init_sql)
+end
+
+--[[
+table_index:
+  { { 'xxx_index', { 'col1', 'col2', ...' }, unique = true }, ... }
+]]
+function M:_create_table_index(table_name, table_index)
+  for i, desc in ipairs(table_index) do
+    local index_sql
+    if type(desc) == 'string' then
+      index_sql = desc
+    else
+      index_sql = string.format(
+        "CREATE %s INDEX %s ON %s(%s);",
+        desc.unique and 'UNIQUE' or '', desc[1], table_name, table.concat(desc[2], ', ')
+      )
+    end
+    self:exec(index_sql)
+  end
+end
+
 return M
+

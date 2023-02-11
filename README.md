@@ -1,5 +1,5 @@
-Lua SQL Model
-=============
+SQLite table
+================
 
 Help you easily to read/write SQLite3 data.
 
@@ -8,33 +8,42 @@ It is based on [lua-ljsqlite3](https://github.com/stepelu/lua-ljsqlite3)
 
 ## Usage
 
-```
-Model = require 'model'
+```lua
+SqliteTable = require 'sqlite_table'
 
-model = Model.new('test', [[
-  CREATE TABLE IF NOT EXISTS test(key char(10) PRIMARY KEY, data TEXT);
-]]);
+local table_schema = {
+  -- { name, type, misc }
+  { 'key', 'char(10)', 'PRIMARY KEY NOT NULL' },
+  { 'data', 'TEXT' },
+  { 'item_type', 'CHAR(10)' }
+}
+local db = require('sqlite').open(':memory:') -- auto create
+local table_index = {
+  { "data_index", { 'data', } }, -- { index_name, columns, unique = boolean }
+  { "item_data_index", { 'item_type', 'data' }, unique = true }
+}
+local table = SqliteTable.new(db, 'test_t2', table_schema, table_index)
 
-model:create({key = 'k', data = '123'})
-model:find('k') -- {key = 'k', data = '123'}
-model:where({data = '123'}):to_a() -- {{key = 'k', data = '123'}}
-model:where("data = '123'"):to_a() -- {{key = 'k', data = '123'}}
+table:create({key = 'k', data = '123'})
+table:find('k') -- {key = 'k', data = '123'}
+table:where({data = '123'}):to_a() -- {{key = 'k', data = '123'}}
+table:where("data = '123'"):to_a() -- {{key = 'k', data = '123'}}
 
-model:update('k', {data = '321'})
-model:find('k') -- {key = 'k', data = '321'}
-model:update("data = 321 AND key = 'k'", {key = '1', data = '11'}) 
-model:find('1') -- {key = '1', data = '11'}
+table:update('k', {data = '321'})
+table:find('k') -- {key = 'k', data = '321'}
+table:update("data = 321 AND key = 'k'", {key = '1', data = '11'})
+table:find('1') -- {key = '1', data = '11'}
 
-model:delete('1')
-model:find('1') -- nil
+table:delete('1')
+table:find('1') -- nil
 
-model:exec('select * from test')
+table:exec('select * from test')
 ```
 
 Query Chain
 
-```
-query = model:where{key = 'k'}:where("data like '1%'"):order('key desc'):limit(10)
+```lua
+query = table:where{key = 'k'}:where("data like '1%'"):order('key desc'):limit(10)
 query:select('key')
 
 -- convert this query to sql
@@ -51,13 +60,13 @@ query:to_sql() -- SELECT * FROM xxx
 
 Format where condition, just gsub the '?' and convert the value to sql value. It doesn't escape dangerous input
 
-```
-model:where("item_type = ? AND width > ?", 'type1', 123)
+```lua
+table:where("item_type = ? AND width > ?", 'type1', 123)
 -- eql
-model:where("item_type = 'type1' AND width > 123", 'type1', 123)
+table:where("item_type = 'type1' AND width > 123", 'type1', 123)
 ```
 
-More see `spec/model_spec.lua`
+More see `spec/sqlite_table_spec.lua`
 
 
 ## TODO
