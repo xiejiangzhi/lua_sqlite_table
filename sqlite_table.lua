@@ -271,7 +271,7 @@ function M:_create_table_index(table_name, table_index)
       index_sql = desc
     else
       index_sql = string.format(
-        "CREATE %s INDEX %s ON %s(%s);",
+        "CREATE %s INDEX IF NOT EXISTS %s ON %s(%s);",
         desc.unique and 'UNIQUE' or '', desc[1], table_name, table.concat(desc[2], ', ')
       )
     end
